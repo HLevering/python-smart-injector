@@ -27,13 +27,12 @@ Overview
     :alt: AppVeyor Build Status
     :target: https://ci.appveyor.com/project/hlevering/python-smart-injector
 
-.. |requires| image:: https://requires.io/github/hlevering/python-smart-injector/requirements.svg?branch=master
+.. |requires| image:: https://requires.io/github/HLevering/python-smart-injector/requirements.svg?branch=master
     :alt: Requirements Status
-    :target: https://requires.io/github/hlevering/python-smart-injector/requirements/?branch=master
-
-.. |codecov| image:: https://codecov.io/github/hlevering/python-smart-injector/coverage.svg?branch=master
+    :target: https://requires.io/github/HLevering/python-smart-injector/requirements/?branch=master
+.. |codecov| image:: https://codecov.io/gh/HLevering/python-smart-injector/branch/master/graphs/badge.svg?branch=master
     :alt: Coverage Status
-    :target: https://codecov.io/github/hlevering/python-smart-injector
+    :target: https://codecov.io/gh/HLevering/python-smart-injector
 
 .. |version| image:: https://img.shields.io/pypi/v/smart-injector.svg
     :alt: PyPI Package latest release
