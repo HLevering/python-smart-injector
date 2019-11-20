@@ -50,9 +50,9 @@ Overview
     :alt: Supported implementations
     :target: https://pypi.org/project/smart-injector
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/hlevering/python-smart-injector/v0.0.1.svg
+.. |commits-since| image:: https://img.shields.io/github/commits-since/hlevering/python-smart-injector/v0.0.2.svg
     :alt: Commits since latest release
-    :target: https://github.com/hlevering/python-smart-injector/compare/v0.0.1...master
+    :target: https://github.com/hlevering/python-smart-injector/compare/v0.0.2...master
 
 
 
