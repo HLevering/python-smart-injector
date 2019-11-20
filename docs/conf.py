@@ -28,12 +28,12 @@ extlinks = {
     'issue': ('https://github.com/hlevering/python-smart-injector/issues/%s', '#'),
     'pr': ('https://github.com/hlevering/python-smart-injector/pull/%s', 'PR #'),
 }
-import sphinx_py3doc_enhanced_theme
-html_theme = "sphinx_py3doc_enhanced_theme"
-html_theme_path = [sphinx_py3doc_enhanced_theme.get_html_theme_path()]
-html_theme_options = {
-    'githuburl': 'https://github.com/hlevering/python-smart-injector/'
-}
+import sphinx_rtd_theme
+html_theme = "sphinx_rtd_theme"
+html_theme_path = ["_themes", ]
+#html_theme_options = {
+#    'githuburl': 'https://github.com/hlevering/python-smart-injector/'
+#}
 
 html_use_smartypants = True
 html_last_updated_fmt = '%b %d, %Y'
