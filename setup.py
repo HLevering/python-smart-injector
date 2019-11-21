@@ -1,8 +1,5 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
-from __future__ import absolute_import
-from __future__ import print_function
-
 import io
 import re
 from glob import glob
@@ -82,5 +79,4 @@ setup(
         #   'rst': ['docutils>=0.11'],
         #   ':python_version=="2.6"': ['argparse'],
     },
-    entry_points={"console_scripts": ["smart-injector = smart_injector.cli:main"]},
 )
