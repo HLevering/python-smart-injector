@@ -3,9 +3,11 @@ from abc import abstractmethod
 
 import pytest  # type: ignore
 
+from smart_injector import Scope
 from smart_injector import StaticContainer
-from smart_injector import create_container
-from smart_injector.container import Context
+from smart_injector.container_factory import create_container
+from smart_injector.register import Register
+from smart_injector.user_context import Context
 
 
 class A:
@@ -149,9 +151,163 @@ class NotASubclass:
 
 
 def test_bind_a_non_subclass_raises_typeerror() -> None:
-    context = Context()
+    register = Register(Scope.TRANSIENT)
+    context = Context(register)
     with pytest.raises(TypeError) as e:
         context.bind(MyBaseClass, NotASubclass)
     assert "{NotASubclass} must be a subclass of {MyBaseClass}".format(
         NotASubclass=NotASubclass, MyBaseClass=MyBaseClass
     ) in str(e)
+
+
+class MySingleton:
+    pass
+
+
+class MyTransient:
+    pass
+
+
+class ScopeContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.set_scope(MySingleton, Scope.SINGLETON)
+        context.set_scope(MyTransient, Scope.TRANSIENT)
+
+
+def test_scopes() -> None:
+    container = create_container(ScopeContainer)
+    s1 = container.get(MySingleton)
+    s2 = container.get(MySingleton)
+    assert s1 is s2
+    t1 = container.get(MyTransient)
+    t2 = container.get(MyTransient)
+    assert t1 is not t2
+
+
+def test_default_scope_switched_to_singleton() -> None:
+    container = create_container(StaticContainer, default_scope=Scope.SINGLETON)
+    s1 = container.get(MySingleton)
+    s2 = container.get(MySingleton)
+    assert s1 is s2
+
+
+def test_default_scope_is_transient() -> None:
+    container = create_container(StaticContainer)
+    t1 = container.get(MyTransient)
+    t2 = container.get(MyTransient)
+    assert t1 is not t2
+
+
+class BindScopeContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.bind(MyInterface, MyImplementation, scope=Scope.SINGLETON)
+
+
+def test_bind_scope():
+    container = create_container(BindScopeContainer)
+    s1 = container.get(MyInterface)
+    s2 = container.get(MyInterface)
+    assert s1 is s2
+
+
+class Transient:
+    def __init__(self, a: int, c: C, b: float):
+        self.a = a
+        self.b = b
+        self.c = c
+
+
+class TransientProviderContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.transient(Transient, a=42, b=10.0)
+
+
+def test_transient_provider():
+    container = create_container(TransientProviderContainer)
+    s1 = container.get(Transient)
+    assert s1.a == 42
+    assert s1.b == 10.0
+    assert isinstance(s1.c, C)
+
+
+class SingletonProviderContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.singleton(Transient, a=42, b=10.0)
+
+
+def test_singleton_provider():
+    container = create_container(SingletonProviderContainer)
+    s1 = container.get(Transient)
+    s2 = container.get(Transient)
+    assert s1.a == 42
+    assert s1.b == 10.0
+    assert s1 is s2
+
+
+class MyInstance:
+    pass
+
+
+MY_INSTANCE_INSTANCE = MyInstance()
+
+
+class InstanceProviderContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.instance(MyInstance, MY_INSTANCE_INSTANCE)
+
+
+def test_instance_provider():
+    container = create_container(InstanceProviderContainer)
+    instance = container.get(MyInstance)
+    assert instance is MY_INSTANCE_INSTANCE
+
+
+def get_my_Transient(a: int, c: C, b: float) -> Transient:
+    return Transient(a, c, b)
+
+
+class CallableProviderContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.callable(get_my_Transient, a=42)
+
+
+def test_callable_provider():
+    container = create_container(CallableProviderContainer)
+    instance = container.get(Transient)
+    assert instance.a == 42
+    assert isinstance(instance.c, C)
+    assert instance.b == 0.0
+
+
+class BindToSingletonContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.bind(MyInterface, MyImplementation)
+        context.singleton(MyImplementation)
+
+
+def test_bind_to_singleton():
+    container = create_container(BindToSingletonContainer)
+    s1 = container.get(MyInterface)
+    s2 = container.get(MyInterface)
+    assert s1 is s2
+
+
+class Dependecy:
+    pass
+
+
+class NeedsDependency:
+    def __init__(self, dependet: Dependecy):
+        self.dependent = dependet
+
+
+class DependencyContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.dependency(Dependecy)
+
+
+def test_dependency_container():
+    dependency = Dependecy()
+    container = create_container(DependencyContainer, dependencies=[dependency])
+    dependent = container.get(NeedsDependency)
+    assert dependent.dependent is dependency
