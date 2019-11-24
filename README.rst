@@ -60,7 +60,7 @@ Overview
 
 An easy to use lightweight dependency injection framework
 
-* Free software: BSD 2-Clause License
+
 
 Installation
 ============
