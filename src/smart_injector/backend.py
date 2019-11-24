@@ -18,7 +18,7 @@ class Resolver:
         self._type_handlers.append(handler)
 
     def get_instance(self, a_type: Callable[..., T]) -> T:
-        return self.get_new_instance(LocalContext(a_type, a_type))
+        return self.get_new_instance(LocalContext(a_type, a_type, a_type))
 
     def get_new_instance(self, context: LocalContext) -> T:
         for handler in cast(

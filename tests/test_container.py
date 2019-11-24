@@ -5,7 +5,9 @@ import pytest  # type: ignore
 
 from smart_injector import Scope
 from smart_injector import StaticContainer
+from smart_injector.backend import Resolver
 from smart_injector.container_factory import create_container
+from smart_injector.register import ContextBased
 from smart_injector.register import Register
 from smart_injector.user_context import Context
 
@@ -311,3 +313,196 @@ def test_dependency_container():
     container = create_container(DependencyContainer, dependencies=[dependency])
     dependent = container.get(NeedsDependency)
     assert dependent.dependent is dependency
+
+
+class F(ABC):
+    @abstractmethod
+    def someting(self):
+        pass
+
+
+class F1(F):
+    def someting(self):
+        pass
+
+
+class F2(F):
+    def someting(self):
+        pass
+
+
+class UseF1:
+    def __init__(self, f: F):
+        self.f = f
+
+
+class UseF2:
+    def __init__(self, f: F):
+        self.f = f
+
+
+class ContextBindingContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.bind(F, F1, where=UseF1)
+        context.bind(F, F2, where=UseF2)
+
+
+def test_binding_with_context():
+    container = create_container(ContextBindingContainer)
+    f1 = container.get(UseF1)
+    f2 = container.get(UseF2)
+    assert isinstance(f1.f, F1)
+    assert isinstance(f2.f, F2)
+
+
+class T:
+    def __init__(self, a: int):
+        self.a = a
+
+
+class UseT1:
+    def __init__(self, t: T):
+        self.t = t
+
+
+class UseT2:
+    def __init__(self, t: T):
+        self.t = t
+
+
+class ContextTransientContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.transient(T, a=1, where=UseT1)
+        context.transient(T, a=2, where=UseT2)
+
+
+def test_transient_with_context():
+    container = create_container(ContextTransientContainer)
+    t1 = container.get(UseT1)
+    t2 = container.get(UseT2)
+    assert t1.t.a == 1
+    assert t2.t.a == 2
+
+
+class ContextSingletonContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.singleton(T, a=1, where=UseT1)
+        context.singleton(T, a=2, where=UseT2)
+
+
+def test_singleton_with_context():
+    container = create_container(ContextSingletonContainer)
+    t11 = container.get(UseT1)
+    t12 = container.get(UseT1)
+    t21 = container.get(UseT2)
+    t22 = container.get(UseT2)
+    assert t11.t.a == 1
+    assert t11.t is t12.t
+    assert t21.t.a == 2
+    assert t21.t is t22.t
+
+
+t1_instance = T(1)
+t2_instance = T(2)
+
+
+class ContextInstanceContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.instance(T, t1_instance, where=UseT1)
+        context.instance(T, t2_instance, where=UseT2)
+
+
+def test_instance_with_context():
+    container = create_container(ContextInstanceContainer)
+    t1 = container.get(UseT1)
+    t2 = container.get(UseT2)
+    assert t1.t is t1_instance
+    assert t2.t is t2_instance
+
+
+def foo(a: int) -> T:
+    return T(a)
+
+
+class ContextCallableContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.callable(foo, a=1, where=UseT1)
+        context.callable(foo, a=2, where=UseT2)
+
+
+def test_callable_with_context():
+    container = create_container(ContextCallableContainer)
+    t1 = container.get(UseT1)
+    t2 = container.get(UseT2)
+    assert t1.t.a == 1
+    assert t2.t.a == 2
+
+
+class UseT3:
+    def __init__(self, t: T):
+        self.t = t
+
+
+class ContextScopeSettingContainer(StaticContainer):
+    def configure(self, context: Context):
+        context.callable(foo, a=1, where=UseT1)
+        context.callable(foo, a=2, where=UseT2)
+        context.set_scope(foo, Scope.SINGLETON, where=UseT2)
+        context.callable(foo, a=2, where=UseT3, scope=Scope.SINGLETON)
+
+
+def test_scope_setting_context():
+    container = create_container(ContextScopeSettingContainer)
+    t11 = container.get(UseT1)
+    t12 = container.get(UseT1)
+    t21 = container.get(UseT2)
+    t22 = container.get(UseT2)
+    assert t11.t.a == 1
+    assert t11.t is not t12.t
+    assert t21.t.a == 2
+    assert t21.t is t22.t
+
+    t31 = container.get(UseT3)
+    t32 = container.get(UseT3)
+    assert t31.t is t32.t
+
+
+def test_resolver_raises_assertion_error_if_no_handler_is_found():
+    resolver = Resolver()
+    with pytest.raises(AssertionError):
+        resolver.get_instance(int)
+
+
+def test_give_a_non_registered_dependency_raises_type_error():
+    with pytest.raises(TypeError):
+        create_container(StaticContainer, dependencies=[5])
+
+
+def test_define_a_dependency_without_providing_it_raises_typeerror():
+    class Container(StaticContainer):
+        def configure(self, context: Context):
+            context.dependency(int)
+
+    with pytest.raises(TypeError):
+        create_container(Container)
+
+
+def test_reset_type():
+    context = ContextBased(int)
+    register = Register(default_scope=Scope.TRANSIENT)
+    register.set_scope(context, Scope.SINGLETON)
+    register.reset(context)
+    assert register.get_scope(context) is Scope.TRANSIENT
+
+
+def test_callable_which_returns_none_raises_typeerror():
+    def foo():
+        pass
+
+    class Container(StaticContainer):
+
+        def configure(self, context: Context):
+            context.callable(foo)
+
+    with pytest.raises(TypeError):
+        create_container(Container)

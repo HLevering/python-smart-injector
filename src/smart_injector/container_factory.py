@@ -11,6 +11,7 @@ from smart_injector.handlers import DefaultTypeHandler
 from smart_injector.handlers import InstanceHandler
 from smart_injector.handlers import SingletonBaseHandler
 from smart_injector.handlers import SingletonEffectiveHandler
+from smart_injector.register import ContextBased
 from smart_injector.register import Register
 from smart_injector.scope import Scope
 from smart_injector.user_context import Context
@@ -54,7 +55,7 @@ def _resolve_dependencies(register: Register, dependencies: List[object]):
                     dependent=type(dependency)
                 )
             )
-        register.set_instance(dependent_type, dependency)
+        register.set_instance(ContextBased(dependent_type), dependency)
         register.remove_dependency(dependent_type)
 
     if register.get_dependencies():
