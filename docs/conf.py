@@ -20,7 +20,7 @@ project = 'Smart Injector'
 year = '2019'
 author = 'Hendrik Levering'
 copyright = '{0}, {1}'.format(year, author)
-version = release = '0.0.3'
+version = release = '0.0.4'
 
 pygments_style = 'trac'
 templates_path = ['.']
