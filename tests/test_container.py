@@ -3,13 +3,13 @@ from abc import abstractmethod
 
 import pytest  # type: ignore
 
-from smart_injector import Scope
+from smart_injector import Lifetime
 from smart_injector import StaticContainer
-from smart_injector.backend import Resolver
-from smart_injector.container_factory import create_container
-from smart_injector.register import ContextBased
-from smart_injector.register import Register
-from smart_injector.user_context import Context
+from smart_injector.config.backend import ConfigBackend
+from smart_injector.config.backend import TypeWithContext
+from smart_injector.config.user import Config
+from smart_injector.container.factory import create_container
+from smart_injector.resolver.resolver import Resolver
 
 
 class A:
@@ -153,8 +153,8 @@ class NotASubclass:
 
 
 def test_bind_a_non_subclass_raises_typeerror() -> None:
-    register = Register(Scope.TRANSIENT)
-    context = Context(register)
+    register = ConfigBackend(Lifetime.TRANSIENT)
+    context = Config(register)
     with pytest.raises(TypeError) as e:
         context.bind(MyBaseClass, NotASubclass)
     assert "{NotASubclass} must be a subclass of {MyBaseClass}".format(
@@ -171,9 +171,9 @@ class MyTransient:
 
 
 class ScopeContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.set_scope(MySingleton, Scope.SINGLETON)
-        context.set_scope(MyTransient, Scope.TRANSIENT)
+    def configure(self, config: Config):
+        config.set_lifetime(MySingleton, Lifetime.SINGLETON)
+        config.set_lifetime(MyTransient, Lifetime.TRANSIENT)
 
 
 def test_scopes() -> None:
@@ -187,7 +187,7 @@ def test_scopes() -> None:
 
 
 def test_default_scope_switched_to_singleton() -> None:
-    container = create_container(StaticContainer, default_scope=Scope.SINGLETON)
+    container = create_container(StaticContainer, default_lifetime=Lifetime.SINGLETON)
     s1 = container.get(MySingleton)
     s2 = container.get(MySingleton)
     assert s1 is s2
@@ -201,8 +201,8 @@ def test_default_scope_is_transient() -> None:
 
 
 class BindScopeContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.bind(MyInterface, MyImplementation, scope=Scope.SINGLETON)
+    def configure(self, config: Config):
+        config.bind(MyInterface, MyImplementation, lifetime=Lifetime.SINGLETON)
 
 
 def test_bind_scope():
@@ -220,8 +220,8 @@ class Transient:
 
 
 class TransientProviderContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.transient(Transient, a=42, b=10.0)
+    def configure(self, config: Config):
+        config.transient(Transient, a=42, b=10.0)
 
 
 def test_transient_provider():
@@ -233,8 +233,8 @@ def test_transient_provider():
 
 
 class SingletonProviderContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.singleton(Transient, a=42, b=10.0)
+    def configure(self, config: Config):
+        config.singleton(Transient, a=42, b=10.0)
 
 
 def test_singleton_provider():
@@ -254,8 +254,8 @@ MY_INSTANCE_INSTANCE = MyInstance()
 
 
 class InstanceProviderContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.instance(MyInstance, MY_INSTANCE_INSTANCE)
+    def configure(self, config: Config):
+        config.instance(MyInstance, MY_INSTANCE_INSTANCE)
 
 
 def test_instance_provider():
@@ -269,8 +269,8 @@ def get_my_Transient(a: int, c: C, b: float) -> Transient:
 
 
 class CallableProviderContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.callable(get_my_Transient, a=42)
+    def configure(self, config: Config):
+        config.callable(get_my_Transient, a=42)
 
 
 def test_callable_provider():
@@ -282,9 +282,9 @@ def test_callable_provider():
 
 
 class BindToSingletonContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.bind(MyInterface, MyImplementation)
-        context.singleton(MyImplementation)
+    def configure(self, config: Config):
+        config.bind(MyInterface, MyImplementation)
+        config.singleton(MyImplementation)
 
 
 def test_bind_to_singleton():
@@ -304,8 +304,8 @@ class NeedsDependency:
 
 
 class DependencyContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.dependency(Dependecy)
+    def configure(self, config: Config):
+        config.dependency(Dependecy)
 
 
 def test_dependency_container():
@@ -342,9 +342,9 @@ class UseF2:
 
 
 class ContextBindingContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.bind(F, F1, where=UseF1)
-        context.bind(F, F2, where=UseF2)
+    def configure(self, config: Config):
+        config.bind(F, F1, where=UseF1)
+        config.bind(F, F2, where=UseF2)
 
 
 def test_binding_with_context():
@@ -371,9 +371,9 @@ class UseT2:
 
 
 class ContextTransientContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.transient(T, a=1, where=UseT1)
-        context.transient(T, a=2, where=UseT2)
+    def configure(self, config: Config):
+        config.transient(T, a=1, where=UseT1)
+        config.transient(T, a=2, where=UseT2)
 
 
 def test_transient_with_context():
@@ -385,9 +385,9 @@ def test_transient_with_context():
 
 
 class ContextSingletonContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.singleton(T, a=1, where=UseT1)
-        context.singleton(T, a=2, where=UseT2)
+    def configure(self, config: Config):
+        config.singleton(T, a=1, where=UseT1)
+        config.singleton(T, a=2, where=UseT2)
 
 
 def test_singleton_with_context():
@@ -407,9 +407,9 @@ t2_instance = T(2)
 
 
 class ContextInstanceContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.instance(T, t1_instance, where=UseT1)
-        context.instance(T, t2_instance, where=UseT2)
+    def configure(self, config: Config):
+        config.instance(T, t1_instance, where=UseT1)
+        config.instance(T, t2_instance, where=UseT2)
 
 
 def test_instance_with_context():
@@ -425,9 +425,9 @@ def foo(a: int) -> T:
 
 
 class ContextCallableContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.callable(foo, a=1, where=UseT1)
-        context.callable(foo, a=2, where=UseT2)
+    def configure(self, config: Config):
+        config.callable(foo, a=1, where=UseT1)
+        config.callable(foo, a=2, where=UseT2)
 
 
 def test_callable_with_context():
@@ -444,11 +444,11 @@ class UseT3:
 
 
 class ContextScopeSettingContainer(StaticContainer):
-    def configure(self, context: Context):
-        context.callable(foo, a=1, where=UseT1)
-        context.callable(foo, a=2, where=UseT2)
-        context.set_scope(foo, Scope.SINGLETON, where=UseT2)
-        context.callable(foo, a=2, where=UseT3, scope=Scope.SINGLETON)
+    def configure(self, config: Config):
+        config.callable(foo, a=1, where=UseT1)
+        config.callable(foo, a=2, where=UseT2)
+        config.set_lifetime(foo, Lifetime.SINGLETON, where=UseT2)
+        config.callable(foo, a=2, where=UseT3, lifetime=Lifetime.SINGLETON)
 
 
 def test_scope_setting_context():
@@ -480,19 +480,19 @@ def test_give_a_non_registered_dependency_raises_type_error():
 
 def test_define_a_dependency_without_providing_it_raises_typeerror():
     class Container(StaticContainer):
-        def configure(self, context: Context):
-            context.dependency(int)
+        def configure(self, config: Config):
+            config.dependency(int)
 
     with pytest.raises(TypeError):
         create_container(Container)
 
 
 def test_reset_type():
-    context = ContextBased(int)
-    register = Register(default_scope=Scope.TRANSIENT)
-    register.set_scope(context, Scope.SINGLETON)
+    context = TypeWithContext(int)
+    register = ConfigBackend(default_lifetime=Lifetime.TRANSIENT)
+    register.set_lifetime(context, Lifetime.SINGLETON)
     register.reset(context)
-    assert register.get_scope(context) is Scope.TRANSIENT
+    assert register.get_lifetime(context) is Lifetime.TRANSIENT
 
 
 def test_callable_which_returns_none_raises_typeerror():
@@ -500,9 +500,56 @@ def test_callable_which_returns_none_raises_typeerror():
         pass
 
     class Container(StaticContainer):
-
-        def configure(self, context: Context):
-            context.callable(foo)
+        def configure(self, config: Config):
+            config.callable(foo)
 
     with pytest.raises(TypeError):
         create_container(Container)
+
+
+class SB1:
+    pass
+
+
+class SB2(SB1):
+    pass
+
+
+class SB3(SB2):
+    pass
+
+
+class MySB:
+    def __init__(self, sb: SB1):
+        self.sb = sb
+
+
+class StackedBindingScope(StaticContainer):
+    def configure(self, config: Config):
+        config.bind(SB1, SB2)
+        config.set_lifetime(SB2, Lifetime.SINGLETON)
+        config.bind(SB2, SB3)
+
+
+def test_stacked_binding_scope():
+    container = create_container(StackedBindingScope)
+    s1 = container.get(MySB)
+    s2 = container.get(MySB)
+    assert isinstance(s1.sb, SB3)
+    assert s1.sb is not s2.sb
+
+
+class MyArg:
+    def __init__(self, arg1):
+        self.arg1 = arg1
+
+class ArgContainer(StaticContainer):
+    def configure(self, config: Config):
+        config.set_arguments(MyArg, arg1="foobar")
+
+
+def test_arg_container():
+    container = create_container(ArgContainer)
+    my_arg = container.get(MyArg)
+    assert my_arg.arg1 == "foobar"
+

@@ -2,41 +2,41 @@ from typing import List
 from typing import Optional
 from typing import Type
 
-from smart_injector.backend import Resolver
-from smart_injector.container import StaticContainer
-from smart_injector.handlers import AbstractTypeHandler
-from smart_injector.handlers import BindingHandler
-from smart_injector.handlers import BuiltinsTypeHandler
-from smart_injector.handlers import DefaultTypeHandler
-from smart_injector.handlers import InstanceHandler
-from smart_injector.handlers import SingletonBaseHandler
-from smart_injector.handlers import SingletonEffectiveHandler
-from smart_injector.register import ContextBased
-from smart_injector.register import Register
-from smart_injector.scope import Scope
-from smart_injector.user_context import Context
+from smart_injector.config.backend import ConfigBackend
+from smart_injector.config.backend import TypeWithContext
+from smart_injector.config.user import Config
+from smart_injector.container.container import StaticContainer
+from smart_injector.lifetime import Lifetime
+from smart_injector.resolver.handlers import AbstractTypeHandler
+from smart_injector.resolver.handlers import BindingHandler
+from smart_injector.resolver.handlers import BuiltinsTypeHandler
+from smart_injector.resolver.handlers import DefaultTypeHandler
+from smart_injector.resolver.handlers import InstanceHandler
+from smart_injector.resolver.handlers import SingletonBaseTypeHandler
+from smart_injector.resolver.handlers import SingletonEffectiveHandler
+from smart_injector.resolver.resolver import Resolver
 
 
 def create_container(
     container: Type[StaticContainer],
-    default_scope=Scope.TRANSIENT,
+    default_lifetime=Lifetime.TRANSIENT,
     dependencies: Optional[List[object]] = None,
 ):
     if dependencies is None:
         dependencies = []
-    register = Register(default_scope)
+    register = ConfigBackend(default_lifetime)
     resolver = _create_resolver(register)
     new_container = container(resolver=resolver)
-    new_container.configure(Context(register=register))
+    new_container.configure(Config(register=register))
     _resolve_dependencies(register, dependencies)
     return new_container
 
 
-def _create_resolver(register: Register):
+def _create_resolver(register: ConfigBackend):
     resolver = Resolver()
     resolver.add_type_handler(InstanceHandler(register))
     resolver.add_type_handler(BindingHandler(resolver, register))
-    resolver.add_type_handler(SingletonBaseHandler(resolver, register))
+    resolver.add_type_handler(SingletonBaseTypeHandler(resolver, register))
     resolver.add_type_handler(SingletonEffectiveHandler(resolver, register))
     resolver.add_type_handler(AbstractTypeHandler())
     resolver.add_type_handler(
@@ -46,7 +46,7 @@ def _create_resolver(register: Register):
     return resolver
 
 
-def _resolve_dependencies(register: Register, dependencies: List[object]):
+def _resolve_dependencies(register: ConfigBackend, dependencies: List[object]):
     for dependency in dependencies:
         dependent_type = type(dependency)
         if dependent_type not in register.get_dependencies():
@@ -55,7 +55,7 @@ def _resolve_dependencies(register: Register, dependencies: List[object]):
                     dependent=type(dependency)
                 )
             )
-        register.set_instance(ContextBased(dependent_type), dependency)
+        register.set_instance(TypeWithContext(dependent_type), dependency)
         register.remove_dependency(dependent_type)
 
     if register.get_dependencies():

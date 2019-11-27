@@ -14,6 +14,9 @@ extensions = [
     'sphinx.ext.todo',
     'sphinx.ext.viewcode',
 ]
+doctest_global_setup = """
+from smart_injector import create_container, StaticContainer, Lifetime, Config
+"""
 source_suffix = '.rst'
 master_doc = 'index'
 project = 'Smart Injector'

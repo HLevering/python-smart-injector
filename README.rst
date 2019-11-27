@@ -1,6 +1,19 @@
 ========
 Overview
 ========
+Smart-injector is an lightweight dependency injection framework for Python. 
+It was designed to be an easy to use tool to implement dependency injection in your application in a pythonic way.
+
+Key features are:
+- Ligtweight
+- pure python
+- leverages type annotations
+- scopes
+- non invasive
+
+
+Project Status
+==============
 
 .. start-badges
 
@@ -58,9 +71,6 @@ Overview
 
 .. end-badges
 
-An easy to use lightweight dependency injection framework
-
-
 
 Installation
 ============
@@ -74,11 +84,33 @@ You can also install the in-development version with::
     pip install https://github.com/hlevering/python-smart-injector/archive/master.zip
 
 
+Quickstart
+==========
+
+.. doctest::
+
+    >>> class A:
+    ...     pass
+    ...
+    >>> class B:
+    ...     def __init__(self, a: A):
+    ...         self.a = a
+    ...             
+    >>> container = create_container(StaticContainer)
+    >>> b = container.get(B)
+    >>> isinstance(b.a, A)
+    True
+
+
+
 Documentation
 =============
 
+Detailed documentation can be found here:
 
 https://python-smart-injector.readthedocs.io/
+
+Examples can be found in the example folder of the repository.
 
 
 Development

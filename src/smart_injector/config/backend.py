@@ -8,11 +8,11 @@ from typing import Optional
 from typing import TypeVar
 from typing import cast
 
-from smart_injector.scope import Scope
-from smart_injector.types import ContextBased
+from smart_injector.lifetime import Lifetime
+from smart_injector.types import TypeWithContext
 
 
-class ScopeVisibility(Enum):
+class ConfigVisibility(Enum):
     LOCAL = 0
     GLOBAL = 1
 
@@ -22,96 +22,96 @@ S = TypeVar("S")
 U = TypeVar("U")
 
 
-class ContextRegister(Generic[U]):
-    def __init__(self, default_factory: Callable[[ContextBased], U]):
+class ContextConfig(Generic[U]):
+    def __init__(self, default_factory: Callable[[TypeWithContext], U]):
         self._default_factory = default_factory
         self._default = {}  # type: Dict[Callable[..., T], U]
         self._with_context = cast(
             Dict[Callable[..., T], Dict[Callable[..., S], U]], defaultdict(dict)
         )
 
-    def get_visibility(self, what: ContextBased) -> ScopeVisibility:
+    def get_visibility(self, what: TypeWithContext) -> ConfigVisibility:
         if self.is_defined_locally(what):
-            return ScopeVisibility.LOCAL
+            return ConfigVisibility.LOCAL
         else:
-            return ScopeVisibility.GLOBAL
+            return ConfigVisibility.GLOBAL
 
-    def set(self, item: ContextBased, to_type: U):
+    def set(self, item: TypeWithContext, to_type: U):
         if item.where is None:
             self._default[item.a_type] = to_type
         else:
             self._with_context[item.where][item.a_type] = to_type
 
-    def is_defined_locally(self, item: ContextBased) -> bool:
+    def is_defined_locally(self, item: TypeWithContext) -> bool:
         if item.where is not None and item.a_type in self._with_context[item.where]:
             return True
         else:
             return False
 
-    def get(self, item: ContextBased) -> U:
+    def get(self, item: TypeWithContext) -> U:
         if self.is_defined_locally(item):
             return self._with_context[cast(Callable[..., T], item.where)].get(
                 item.a_type, self._default_factory(item)
             )
         return self._default.get(item.a_type, self._default_factory(item))
 
-    def delete(self, item: ContextBased):
+    def delete(self, item: TypeWithContext):
         if item.where is None:
             self._default.pop(item.a_type, cast(U, None))
         else:
             self._with_context[item.where].pop(item.a_type, cast(U, None))
 
 
-class Register:
-    def __init__(self, default_scope: Scope):
-        self._default_scope = default_scope
-        self._bindings = ContextRegister[Callable[..., T]](lambda x: x.a_type)
-        self._scopes = ContextRegister(lambda x: self._default_scope)
-        self._factory_args = ContextRegister[Dict[str, Any]](lambda x: {})
-        self._instances = ContextRegister[Optional[object]](lambda x: None)
+class ConfigBackend:
+    def __init__(self, default_lifetime: Lifetime):
+        self._default_scope = default_lifetime
+        self._bindings = ContextConfig[Callable[..., T]](lambda x: x.a_type)
+        self._lifetimes = ContextConfig(lambda x: self._default_scope)
+        self._factory_args = ContextConfig[Dict[str, Any]](lambda x: {})
+        self._instances = ContextConfig[Optional[object]](lambda x: None)
         self._dependencies = {}  # type: Dict[Callable[..., T], None]
 
-    def get_scope_visibility(self, what: ContextBased) -> ScopeVisibility:
-        return self._scopes.get_visibility(what)
+    def get_scope_visibility(self, what: TypeWithContext) -> ConfigVisibility:
+        return self._lifetimes.get_visibility(what)
 
-    def set_scope(self, what: ContextBased, scope: Scope):
-        self._remove_scope_setting(what)
-        if scope is not Scope._INTERNAL_DEFAULT:
-            self._scopes.set(what, scope)
+    def set_lifetime(self, what: TypeWithContext, lifetime: Lifetime):
+        self._remove_lifetime_setting(what)
+        if lifetime is not Lifetime._INTERNAL_DEFAULT:
+            self._lifetimes.set(what, lifetime)
 
-    def get_scope(self, what: ContextBased) -> Scope:
-        return cast(Scope, self._scopes.get(what))
+    def get_lifetime(self, what: TypeWithContext) -> Lifetime:
+        return cast(Lifetime, self._lifetimes.get(what))
 
-    def _remove_scope_setting(self, what: ContextBased):
-        self._scopes.delete(what)
+    def _remove_lifetime_setting(self, what: TypeWithContext):
+        self._lifetimes.delete(what)
 
-    def set_binding(self, what: ContextBased, to_type: Callable[..., S]):
+    def set_binding(self, what: TypeWithContext, to_type: Callable[..., S]):
         self._bindings.set(what, to_type)
 
-    def get_binding(self, which: ContextBased) -> Callable[..., S]:
+    def get_binding(self, which: TypeWithContext) -> Callable[..., S]:
         return self._bindings.get(which)
 
-    def set_factory_args(self, what: ContextBased, kwargs: Dict[str, Any]):
+    def set_factory_args(self, what: TypeWithContext, kwargs: Dict[str, Any]):
         self._factory_args.set(what, kwargs)
 
-    def get_factory_args(self, what: ContextBased) -> Dict[str, Any]:
+    def get_factory_args(self, what: TypeWithContext) -> Dict[str, Any]:
         return self._factory_args.get(what)
 
-    def set_instance(self, what: ContextBased, instance: T):
+    def set_instance(self, what: TypeWithContext, instance: T):
         self._instances.set(what, instance)
 
-    def has_instance(self, what: ContextBased) -> bool:
+    def has_instance(self, what: TypeWithContext) -> bool:
         return False if self._instances.get(what) is None else True
 
-    def get_instance(self, what: ContextBased) -> T:
+    def get_instance(self, what: TypeWithContext) -> T:
         return cast(T, self._instances.get(what))
 
-    def is_singleton(self, what: ContextBased) -> bool:
-        return True if self.get_scope(what) is Scope.SINGLETON else False
+    def is_singleton(self, what: TypeWithContext) -> bool:
+        return True if self.get_lifetime(what) is Lifetime.SINGLETON else False
 
-    def reset(self, what: ContextBased):
+    def reset(self, what: TypeWithContext):
         self._bindings.delete(what)
-        self._scopes.delete(what)
+        self._lifetimes.delete(what)
         self._factory_args.delete(what)
         self._instances.delete(what)
         self._dependencies.pop(what.a_type, None)
