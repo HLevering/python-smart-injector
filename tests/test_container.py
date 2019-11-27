@@ -543,6 +543,7 @@ class MyArg:
     def __init__(self, arg1):
         self.arg1 = arg1
 
+
 class ArgContainer(StaticContainer):
     def configure(self, config: Config):
         config.set_arguments(MyArg, arg1="foobar")
@@ -552,4 +553,3 @@ def test_arg_container():
     container = create_container(ArgContainer)
     my_arg = container.get(MyArg)
     assert my_arg.arg1 == "foobar"
-

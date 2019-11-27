@@ -81,5 +81,7 @@ class Config:
     def dependency(self, a_type: Callable[..., T]):
         self._default_register.add_dependency(a_type)
 
-    def set_arguments(self, a_type: Callable[..., T], where: Where=None, **kwargs: Any):
+    def set_arguments(
+        self, a_type: Callable[..., T], where: Where = None, **kwargs: Any
+    ):
         self._default_register.set_factory_args(TypeWithContext(a_type, where), kwargs)

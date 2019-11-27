@@ -87,7 +87,7 @@ You can also install the in-development version with::
 Quickstart
 ==========
 
-.. doctest::
+Basic Usage::
 
     >>> class A:
     ...     pass
