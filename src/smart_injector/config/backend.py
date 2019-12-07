@@ -62,59 +62,64 @@ class ContextConfig(Generic[U]):
             self._with_context[item.where].pop(item.a_type, cast(U, None))
 
 
-class ConfigBackend:
-    def __init__(self, default_lifetime: Lifetime):
-        self._default_scope = default_lifetime
-        self._bindings = ContextConfig[Callable[..., T]](lambda x: x.a_type)
-        self._lifetimes = ContextConfig(lambda x: self._default_scope)
-        self._factory_args = ContextConfig[Dict[str, Any]](lambda x: {})
-        self._instances = ContextConfig[Optional[object]](lambda x: None)
-        self._dependencies = {}  # type: Dict[Callable[..., T], None]
+class FactoryArgs(ContextConfig[Dict[str, Any]]):
+    def __init__(self):
+        super().__init__(lambda x: {})
 
-    def get_scope_visibility(self, what: TypeWithContext) -> ConfigVisibility:
-        return self._lifetimes.get_visibility(what)
+    def set_factory_args(self, what: TypeWithContext, kwargs: Dict[str, Any]):
+        self.set(what, kwargs)
+
+    def get_factory_args(self, what: TypeWithContext) -> Dict[str, Any]:
+        return self.get(what)
+
+
+class Instances(ContextConfig[Optional[object]]):
+    def __init__(self):
+        super().__init__(lambda x: None)
+
+    def set_instance(self, what: TypeWithContext, instance: T):
+        self.set(what, instance)
+
+    def has_instance(self, what: TypeWithContext) -> bool:
+        return False if self.get(what) is None else True
+
+    def get_instance(self, what: TypeWithContext) -> T:
+        return cast(T, self.get(what))
+
+
+class Bindings(ContextConfig[Callable[..., T]]):
+    def __init__(self):
+        super().__init__(lambda x: x.a_type)
+
+    def set_binding(self, what: TypeWithContext, to_type: Callable[..., S]):
+        self.set(what, to_type)
+
+    def get_binding(self, which: TypeWithContext) -> Callable[..., S]:
+        return self.get(which)
+
+
+class Lifetimes(ContextConfig[Callable[..., T]]):
+    def __init__(self, default_lifetime: Lifetime):
+        super().__init__(lambda x: default_lifetime)  # type: ignore
+
+    def is_singleton(self, what: TypeWithContext) -> bool:
+        return True if cast(Lifetime, self.get(what)) is Lifetime.SINGLETON else False
 
     def set_lifetime(self, what: TypeWithContext, lifetime: Lifetime):
         self._remove_lifetime_setting(what)
         if lifetime is not Lifetime._INTERNAL_DEFAULT:
-            self._lifetimes.set(what, lifetime)
-
-    def get_lifetime(self, what: TypeWithContext) -> Lifetime:
-        return cast(Lifetime, self._lifetimes.get(what))
+            self.set(what, lifetime)
 
     def _remove_lifetime_setting(self, what: TypeWithContext):
-        self._lifetimes.delete(what)
+        self.delete(what)
 
-    def set_binding(self, what: TypeWithContext, to_type: Callable[..., S]):
-        self._bindings.set(what, to_type)
+    def visibility(self, what: TypeWithContext) -> ConfigVisibility:
+        return self.get_visibility(what)
 
-    def get_binding(self, which: TypeWithContext) -> Callable[..., S]:
-        return self._bindings.get(which)
 
-    def set_factory_args(self, what: TypeWithContext, kwargs: Dict[str, Any]):
-        self._factory_args.set(what, kwargs)
-
-    def get_factory_args(self, what: TypeWithContext) -> Dict[str, Any]:
-        return self._factory_args.get(what)
-
-    def set_instance(self, what: TypeWithContext, instance: T):
-        self._instances.set(what, instance)
-
-    def has_instance(self, what: TypeWithContext) -> bool:
-        return False if self._instances.get(what) is None else True
-
-    def get_instance(self, what: TypeWithContext) -> T:
-        return cast(T, self._instances.get(what))
-
-    def is_singleton(self, what: TypeWithContext) -> bool:
-        return True if self.get_lifetime(what) is Lifetime.SINGLETON else False
-
-    def reset(self, what: TypeWithContext):
-        self._bindings.delete(what)
-        self._lifetimes.delete(what)
-        self._factory_args.delete(what)
-        self._instances.delete(what)
-        self._dependencies.pop(what.a_type, None)
+class Dependencies:
+    def __init__(self):
+        self._dependencies = {}  # type: Dict[Callable[..., T], None]
 
     def add_dependency(self, a_type: Callable[..., T]):
         if a_type not in self._dependencies:
@@ -125,3 +130,19 @@ class ConfigBackend:
 
     def get_dependencies(self) -> Dict[Callable[..., T], None]:
         return cast(Dict[Callable[..., T], None], self._dependencies)
+
+
+class ConfigBackend:
+    def __init__(
+        self,
+        bindings: Bindings,
+        lifetimes: Lifetimes,
+        instances: Instances,
+        factory_args: FactoryArgs,
+        dependencies: Dependencies,
+    ):
+        self.bindings = bindings
+        self.lifetimes = lifetimes
+        self.instances = instances
+        self.factory_args = factory_args
+        self.dependencies = dependencies

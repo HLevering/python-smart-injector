@@ -2,7 +2,12 @@ from typing import List
 from typing import Optional
 from typing import Type
 
+from smart_injector.config.backend import Bindings
 from smart_injector.config.backend import ConfigBackend
+from smart_injector.config.backend import Dependencies
+from smart_injector.config.backend import FactoryArgs
+from smart_injector.config.backend import Instances
+from smart_injector.config.backend import Lifetimes
 from smart_injector.config.backend import TypeWithContext
 from smart_injector.config.user import Config
 from smart_injector.container.container import StaticContainer
@@ -10,8 +15,9 @@ from smart_injector.lifetime import Lifetime
 from smart_injector.resolver.handlers import AbstractTypeHandler
 from smart_injector.resolver.handlers import BindingHandler
 from smart_injector.resolver.handlers import BuiltinsTypeHandler
-from smart_injector.resolver.handlers import DefaultTypeHandler
+from smart_injector.resolver.handlers import InstanceFactory
 from smart_injector.resolver.handlers import InstanceHandler
+from smart_injector.resolver.handlers import NewInstanceHandler
 from smart_injector.resolver.handlers import SingletonBaseTypeHandler
 from smart_injector.resolver.handlers import SingletonEffectiveHandler
 from smart_injector.resolver.resolver import Resolver
@@ -24,43 +30,59 @@ def create_container(
 ):
     if dependencies is None:
         dependencies = []
-    register = ConfigBackend(default_lifetime)
-    resolver = _create_resolver(register)
+    backend = _create_backend(default_lifetime)
+    resolver = _create_resolver(backend)
     new_container = container(resolver=resolver)
-    new_container.configure(Config(register=register))
-    _resolve_dependencies(register, dependencies)
+    new_container.configure(Config(backend=backend))
+    _resolve_dependencies(backend, dependencies)
     return new_container
 
 
-def _create_resolver(register: ConfigBackend):
+def _create_backend(default_lifetime: Lifetime) -> ConfigBackend:
+    lifetimes = Lifetimes(default_lifetime)
+    instances = Instances()
+    bindings = Bindings()
+    factory_args = FactoryArgs()
+    _dependencies = Dependencies()
+    return ConfigBackend(bindings, lifetimes, instances, factory_args, _dependencies)
+
+
+def _create_resolver(backend: ConfigBackend):
     resolver = Resolver()
-    resolver.add_type_handler(InstanceHandler(register))
-    resolver.add_type_handler(BindingHandler(resolver, register))
-    resolver.add_type_handler(SingletonBaseTypeHandler(resolver, register))
-    resolver.add_type_handler(SingletonEffectiveHandler(resolver, register))
+    instance_factory = InstanceFactory(resolver, backend.factory_args)
+    resolver.add_type_handler(InstanceHandler(backend.instances))
+    resolver.add_type_handler(BindingHandler(resolver, backend.bindings))
+    resolver.add_type_handler(
+        SingletonBaseTypeHandler(backend.lifetimes, backend.instances, instance_factory)
+    )
+    resolver.add_type_handler(
+        SingletonEffectiveHandler(
+            backend.lifetimes, backend.instances, instance_factory
+        )
+    )
     resolver.add_type_handler(AbstractTypeHandler())
     resolver.add_type_handler(
         BuiltinsTypeHandler(my_builtins=[int, float, str, bytearray, bytes])
     )
-    resolver.add_type_handler(DefaultTypeHandler(resolver, register))
+    resolver.add_type_handler(NewInstanceHandler(instance_factory))
     return resolver
 
 
-def _resolve_dependencies(register: ConfigBackend, dependencies: List[object]):
+def _resolve_dependencies(backend: ConfigBackend, dependencies: List[object]):
     for dependency in dependencies:
         dependent_type = type(dependency)
-        if dependent_type not in register.get_dependencies():
+        if dependent_type not in backend.dependencies.get_dependencies():
             raise TypeError(
                 "no dependency was declared for type {dependent}".format(
                     dependent=type(dependency)
                 )
             )
-        register.set_instance(TypeWithContext(dependent_type), dependency)
-        register.remove_dependency(dependent_type)
+        backend.instances.set_instance(TypeWithContext(dependent_type), dependency)
+        backend.dependencies.remove_dependency(dependent_type)
 
-    if register.get_dependencies():
+    if backend.dependencies.get_dependencies():
         raise TypeError(
             "no dependency were declared for the types  {dependency}".format(
-                dependency=register.get_dependencies()
+                dependency=backend.dependencies.get_dependencies()
             )
         )

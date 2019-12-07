@@ -28,4 +28,4 @@ class Resolver:
                 return handler.handle(context)
         assert (
             False
-        ), "should not reach this. you should have implemented a default handler"
+        ), "should not reach this. you should have added a default handler"

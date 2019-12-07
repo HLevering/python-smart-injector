@@ -5,8 +5,12 @@ import pytest  # type: ignore
 
 from smart_injector import Lifetime
 from smart_injector import StaticContainer
+from smart_injector.config.backend import Bindings
 from smart_injector.config.backend import ConfigBackend
-from smart_injector.config.backend import TypeWithContext
+from smart_injector.config.backend import Dependencies
+from smart_injector.config.backend import FactoryArgs
+from smart_injector.config.backend import Instances
+from smart_injector.config.backend import Lifetimes
 from smart_injector.config.user import Config
 from smart_injector.container.factory import create_container
 from smart_injector.resolver.resolver import Resolver
@@ -153,8 +157,13 @@ class NotASubclass:
 
 
 def test_bind_a_non_subclass_raises_typeerror() -> None:
-    register = ConfigBackend(Lifetime.TRANSIENT)
-    context = Config(register)
+    lifetime = Lifetimes(Lifetime.TRANSIENT)
+    instances = Instances()
+    bindings = Bindings()
+    factory_args = FactoryArgs()
+    dependencies = Dependencies()
+    backend = ConfigBackend(bindings, lifetime, instances, factory_args, dependencies)
+    context = Config(backend)
     with pytest.raises(TypeError) as e:
         context.bind(MyBaseClass, NotASubclass)
     assert "{NotASubclass} must be a subclass of {MyBaseClass}".format(
@@ -485,14 +494,6 @@ def test_define_a_dependency_without_providing_it_raises_typeerror():
 
     with pytest.raises(TypeError):
         create_container(Container)
-
-
-def test_reset_type():
-    context = TypeWithContext(int)
-    register = ConfigBackend(default_lifetime=Lifetime.TRANSIENT)
-    register.set_lifetime(context, Lifetime.SINGLETON)
-    register.reset(context)
-    assert register.get_lifetime(context) is Lifetime.TRANSIENT
 
 
 def test_callable_which_returns_none_raises_typeerror():
