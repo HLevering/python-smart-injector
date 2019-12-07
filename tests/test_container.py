@@ -140,7 +140,7 @@ class BindHierarchyContainer(StaticContainer):
         ctx.bind(H2, H3)
 
 
-def test_bind_hierarchy() -> None:
+def test_container_resolves_chained_binding() -> None:
     container = create_container(BindHierarchyContainer)
     concrete_object = container.get(H1)
     assert isinstance(concrete_object, H3)
@@ -185,7 +185,7 @@ class ScopeContainer(StaticContainer):
         config.set_lifetime(MyTransient, Lifetime.TRANSIENT)
 
 
-def test_scopes() -> None:
+def test_singleton_lifetimes() -> None:
     container = create_container(ScopeContainer)
     s1 = container.get(MySingleton)
     s2 = container.get(MySingleton)
@@ -195,14 +195,14 @@ def test_scopes() -> None:
     assert t1 is not t2
 
 
-def test_default_scope_switched_to_singleton() -> None:
+def test_default_lifetime_switched_to_singleton() -> None:
     container = create_container(StaticContainer, default_lifetime=Lifetime.SINGLETON)
     s1 = container.get(MySingleton)
     s2 = container.get(MySingleton)
     assert s1 is s2
 
 
-def test_default_scope_is_transient() -> None:
+def test_default_lifetime_is_transient() -> None:
     container = create_container(StaticContainer)
     t1 = container.get(MyTransient)
     t2 = container.get(MyTransient)
@@ -214,7 +214,7 @@ class BindScopeContainer(StaticContainer):
         config.bind(MyInterface, MyImplementation, lifetime=Lifetime.SINGLETON)
 
 
-def test_bind_scope():
+def test_bind_with_given_lifetime():
     container = create_container(BindScopeContainer)
     s1 = container.get(MyInterface)
     s2 = container.get(MyInterface)
@@ -233,7 +233,7 @@ class TransientProviderContainer(StaticContainer):
         config.transient(Transient, a=42, b=10.0)
 
 
-def test_transient_provider():
+def test_transient_creates_transient_object_with_args():
     container = create_container(TransientProviderContainer)
     s1 = container.get(Transient)
     assert s1.a == 42
@@ -246,7 +246,7 @@ class SingletonProviderContainer(StaticContainer):
         config.singleton(Transient, a=42, b=10.0)
 
 
-def test_singleton_provider():
+def test_singleton_creates_singleton_objects_with_args():
     container = create_container(SingletonProviderContainer)
     s1 = container.get(Transient)
     s2 = container.get(Transient)
@@ -267,7 +267,7 @@ class InstanceProviderContainer(StaticContainer):
         config.instance(MyInstance, MY_INSTANCE_INSTANCE)
 
 
-def test_instance_provider():
+def test_instance_returns_provided_intance():
     container = create_container(InstanceProviderContainer)
     instance = container.get(MyInstance)
     assert instance is MY_INSTANCE_INSTANCE
@@ -282,7 +282,7 @@ class CallableProviderContainer(StaticContainer):
         config.callable(get_my_Transient, a=42)
 
 
-def test_callable_provider():
+def test_callable_is_called_with_args_for_return_type_dependency():
     container = create_container(CallableProviderContainer)
     instance = container.get(Transient)
     assert instance.a == 42
@@ -296,7 +296,7 @@ class BindToSingletonContainer(StaticContainer):
         config.singleton(MyImplementation)
 
 
-def test_bind_to_singleton():
+def test_lifetime_of_binded_type_is_singleton():
     container = create_container(BindToSingletonContainer)
     s1 = container.get(MyInterface)
     s2 = container.get(MyInterface)
@@ -317,7 +317,7 @@ class DependencyContainer(StaticContainer):
         config.dependency(Dependecy)
 
 
-def test_dependency_container():
+def test_given_dependencies_are_used_for_resolution():
     dependency = Dependecy()
     container = create_container(DependencyContainer, dependencies=[dependency])
     dependent = container.get(NeedsDependency)
@@ -356,7 +356,7 @@ class ContextBindingContainer(StaticContainer):
         config.bind(F, F2, where=UseF2)
 
 
-def test_binding_with_context():
+def test_binding_within_a_context():
     container = create_container(ContextBindingContainer)
     f1 = container.get(UseF1)
     f2 = container.get(UseF2)
@@ -385,7 +385,7 @@ class ContextTransientContainer(StaticContainer):
         config.transient(T, a=2, where=UseT2)
 
 
-def test_transient_with_context():
+def test_transient_within_a_context():
     container = create_container(ContextTransientContainer)
     t1 = container.get(UseT1)
     t2 = container.get(UseT2)
@@ -399,7 +399,7 @@ class ContextSingletonContainer(StaticContainer):
         config.singleton(T, a=2, where=UseT2)
 
 
-def test_singleton_with_context():
+def test_singleton_within_a_context():
     container = create_container(ContextSingletonContainer)
     t11 = container.get(UseT1)
     t12 = container.get(UseT1)
@@ -421,7 +421,7 @@ class ContextInstanceContainer(StaticContainer):
         config.instance(T, t2_instance, where=UseT2)
 
 
-def test_instance_with_context():
+def test_instance_within_a_context():
     container = create_container(ContextInstanceContainer)
     t1 = container.get(UseT1)
     t2 = container.get(UseT2)
@@ -439,7 +439,7 @@ class ContextCallableContainer(StaticContainer):
         config.callable(foo, a=2, where=UseT2)
 
 
-def test_callable_with_context():
+def test_callable_within_a_context():
     container = create_container(ContextCallableContainer)
     t1 = container.get(UseT1)
     t2 = container.get(UseT2)
@@ -460,7 +460,7 @@ class ContextScopeSettingContainer(StaticContainer):
         config.callable(foo, a=2, where=UseT3, lifetime=Lifetime.SINGLETON)
 
 
-def test_scope_setting_context():
+def test_scope_setting_within_a_context():
     container = create_container(ContextScopeSettingContainer)
     t11 = container.get(UseT1)
     t12 = container.get(UseT1)
@@ -532,7 +532,7 @@ class StackedBindingScope(StaticContainer):
         config.bind(SB2, SB3)
 
 
-def test_stacked_binding_scope():
+def test_stacked_binding_uses_singleton_of_bound_to_object_first():
     container = create_container(StackedBindingScope)
     s1 = container.get(MySB)
     s2 = container.get(MySB)
@@ -550,7 +550,7 @@ class ArgContainer(StaticContainer):
         config.set_arguments(MyArg, arg1="foobar")
 
 
-def test_arg_container():
+def test_provide_arguments_for_a_callable_container():
     container = create_container(ArgContainer)
     my_arg = container.get(MyArg)
     assert my_arg.arg1 == "foobar"
