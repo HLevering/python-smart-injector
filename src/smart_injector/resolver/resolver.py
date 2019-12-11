@@ -3,8 +3,8 @@ from typing import List
 from typing import TypeVar
 from typing import cast
 
-from smart_injector.types import DependencyContext
 from smart_injector.types import Handler
+from smart_injector.types import ResolveRequest
 
 T = TypeVar("T")
 S = TypeVar("S")
@@ -18,14 +18,12 @@ class Resolver:
         self._type_handlers.append(handler)
 
     def get_instance(self, a_type: Callable[..., T]) -> T:
-        return self.get_new_instance(DependencyContext(a_type, a_type, a_type))
+        return self.get_new_instance(ResolveRequest(a_type, a_type, None))
 
-    def get_new_instance(self, context: DependencyContext) -> T:
+    def get_new_instance(self, context: ResolveRequest) -> T:
         for handler in cast(
             List[Handler], self._type_handlers
         ):  # use list cast to surpress pylama List not used warning
             if handler.can_handle_type(context):
                 return handler.handle(context)
-        assert (
-            False
-        ), "should not reach this. you should have added a default handler"
+        assert False, "should not reach this. you should have added a default handler"

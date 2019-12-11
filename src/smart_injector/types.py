@@ -7,7 +7,7 @@ from typing import TypeVar
 T = TypeVar("T")
 
 
-class TypeWithContext:
+class ConfigEntry:
     def __init__(
         self, a_type: Callable[..., T], where: Optional[Callable[..., T]] = None
     ):
@@ -15,43 +15,43 @@ class TypeWithContext:
         self.where = where
 
 
-class DependencyContext:
+class ResolveRequest:
     def __init__(
         self,
-        a_type: Callable[..., T],
+        real_type: Callable[..., T],
         base_type: Callable[..., T],
         where: Optional[Callable[..., T]],
     ):
-        self.a_type = a_type
+        self.real_type = real_type
         self.base_type = base_type
         self.where = where
 
-    def get_new_bind_context(self, a_type: Callable[..., T]) -> "DependencyContext":
-        return DependencyContext(a_type, self.base_type, where=self.where)
-
-    def get_new_dependency_context(
+    def new_request_with_same_origin(
         self, a_type: Callable[..., T]
-    ) -> "DependencyContext":
-        return DependencyContext(a_type, self.a_type, where=self.where)
+    ) -> "ResolveRequest":
+        return ResolveRequest(a_type, self.base_type, where=self.where)
 
-    def type_with_context(self) -> TypeWithContext:
-        return TypeWithContext(self.a_type, self.where)
+    def get_new_dependency_context(self, a_type: Callable[..., T]) -> "ResolveRequest":
+        return ResolveRequest(a_type, a_type, where=self.base_type)
 
-    def context_free_type(self) -> TypeWithContext:
-        return TypeWithContext(self.a_type, where=None)
+    def local_config_entry(self) -> ConfigEntry:
+        return ConfigEntry(self.real_type, self.where)
 
-    def base_type_with_context(self) -> TypeWithContext:
-        return TypeWithContext(self.base_type, self.where)
+    def global_config_entry(self) -> ConfigEntry:
+        return ConfigEntry(self.real_type, where=None)
 
-    def context_free_base_type(self) -> TypeWithContext:
-        return TypeWithContext(self.base_type, where=None)
+    def local_base_config_entry(self) -> ConfigEntry:
+        return ConfigEntry(self.base_type, self.where)
+
+    def global_base_config_entry(self) -> ConfigEntry:
+        return ConfigEntry(self.base_type, where=None)
 
 
 class Handler(ABC):
     @abstractmethod
-    def can_handle_type(self, context: DependencyContext) -> bool:
+    def can_handle_type(self, request: ResolveRequest) -> bool:
         pass
 
     @abstractmethod
-    def handle(self, context: DependencyContext) -> T:
+    def handle(self, request: ResolveRequest) -> T:
         pass

@@ -1,14 +1,14 @@
+from typing import Callable
 from typing import List
 from typing import Optional
-from typing import Type
 
 from smart_injector.config.backend import Bindings
 from smart_injector.config.backend import ConfigBackend
+from smart_injector.config.backend import ConfigEntry
 from smart_injector.config.backend import Dependencies
 from smart_injector.config.backend import FactoryArgs
 from smart_injector.config.backend import Instances
 from smart_injector.config.backend import Lifetimes
-from smart_injector.config.backend import TypeWithContext
 from smart_injector.config.user import Config
 from smart_injector.container.container import StaticContainer
 from smart_injector.lifetime import Lifetime
@@ -24,18 +24,24 @@ from smart_injector.resolver.resolver import Resolver
 
 
 def create_container(
-    container: Type[StaticContainer],
+    configure: Optional[Callable[[Config], None]] = None,
     default_lifetime=Lifetime.TRANSIENT,
     dependencies: Optional[List[object]] = None,
 ):
+    if configure is None:
+        configure = _default_config
     if dependencies is None:
         dependencies = []
     backend = _create_backend(default_lifetime)
     resolver = _create_resolver(backend)
-    new_container = container(resolver=resolver)
-    new_container.configure(Config(backend=backend))
+    container = StaticContainer(resolver=resolver)
+    configure(Config(backend=backend))
     _resolve_dependencies(backend, dependencies)
-    return new_container
+    return container
+
+
+def _default_config(config: Config):
+    pass
 
 
 def _create_backend(default_lifetime: Lifetime) -> ConfigBackend:
@@ -77,7 +83,7 @@ def _resolve_dependencies(backend: ConfigBackend, dependencies: List[object]):
                     dependent=type(dependency)
                 )
             )
-        backend.instances.set_instance(TypeWithContext(dependent_type), dependency)
+        backend.instances.set_instance(ConfigEntry(dependent_type), dependency)
         backend.dependencies.remove_dependency(dependent_type)
 
     if backend.dependencies.get_dependencies():

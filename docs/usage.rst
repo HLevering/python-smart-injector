@@ -12,16 +12,16 @@ Basic example:
 
 .. testcode::
 
-    from smart_injector import create_container, StaticContainer
+    from smart_injector import create_container
 
     class A:
         pass
-    
+
     class B:
         def __init__(self, a: A):
             self.a = a
-                
-    container = create_container(StaticContainer)
+
+    container = create_container()
     b = container.get(B)
     print(isinstance(b.a, A))
 
@@ -55,23 +55,21 @@ However, configuration can be done quite easily:
         @abstractmethod
         def do(self):
             pass
-    
+
     class ConcretA(A):
         def do(self):
             print("Hello")
 
     from smart_injector import Config # not needed but lets you type annotate your configure method
 
-    #create your own container class by inheriting from StaticContainer
-    class MyContainer(StaticContainer):
-        # override configure method
-        def configure(self, config: Config):
-            # use config's bind method to bind A to ConcretA
-            config.bind(A, ConcretA)
-            # now everytime when there is a dependency on A then ConcretA will be injected
+    # create your own configuration function. This function must take a parameter of type Config
+    def configure(config: Config):
+        # use config's bind method to bind A to ConcretA
+        config.bind(A, ConcretA)
+        # now everytime when there is a dependency on A then ConcretA will be injected
 
-    # create an instance of your new defined container            
-    container = create_container(MyContainer)
+    # create an instance of your new defined container
+    container = create_container(configure)
     a = container.get(A)
     a.do()
 
@@ -92,7 +90,7 @@ Binding is not restricted to abstract classes. You can bind type A to type B as 
         @abstractmethod
         def do(self):
             pass
-    
+
     class ConcretA(A):
         def do(self):
             print("Hello")
@@ -101,15 +99,13 @@ Binding is not restricted to abstract classes. You can bind type A to type B as 
         def do(self):
             print("World")
 
-    class MyContainer(StaticContainer):
-        # override configure method
-        def configure(self, config: Config):
-            config.bind(A, ConcretA)
-            config.bind(ConcretA, ConcretB)
-            # now everytime when there is a dependency on A then ConcretB will be injected
+    def configure(config: Config):
+        config.bind(A, ConcretA)
+        config.bind(ConcretA, ConcretB)
+        # now everytime when there is a dependency on A then ConcretB will be injected
 
-    # create an instance of your new defined container            
-    container = create_container(MyContainer)
+    # create an instance of your new defined container
+    container = create_container(configure)
     a = container.get(A)
     a.do()
 
@@ -125,7 +121,7 @@ Dependencies on builtin types are default constructed by default.
 
 .. testcode::
 
-    container = create_container(StaticContainer)
+    container = create_container()
     print(container.get(int))
     print(container.get(float))
     print(container.get(str))
@@ -137,7 +133,7 @@ Dependencies on builtin types are default constructed by default.
 
     0
     0.0
-    
+
     b''
     bytearray(b'')
 
@@ -159,13 +155,12 @@ You can provide arguments explicitly by configuring your container to do so
             self.b = b
             self.c = c
 
-    class MyContainer(StaticContainer):
-        def configure(self, config: Config):
-            # use config's set_arguments method to provide some arguments
-            config.set_arguments(MyClass, a="hello", b=42, c=1.0)
-            # now everytime when there is a dependency on MyClass then MyClass(a="hello", b=42, c=1.0) will be inserted
+    def configure(config: Config):
+        # use config's set_arguments method to provide some arguments
+        config.set_arguments(MyClass, a="hello", b=42, c=1.0)
+        # now everytime when there is a dependency on MyClass then MyClass(a="hello", b=42, c=1.0) will be inserted
 
-    container = create_container(MyContainer)
+    container = create_container(configure)
     a = container.get(MyClass)
     print(a.a)
     print(a.b)
@@ -192,13 +187,12 @@ If arguments are provided explicitly, it is not necessary to provide all argumen
             self.foo = foo
             self.c = c
 
-    class MyContainer(StaticContainer):
-        def configure(self, config: Config):
-            # use config's set_arguments method to provide some arguments
-            config.set_arguments(MyClass, a="hello", c=1.0)
-            # now everytime when there is a dependency on MyClass then MyClass(a="hello", b=42, c=1.0) will be inserted
+    def configure(config: Config):
+        # use config's set_arguments method to provide some arguments
+        config.set_arguments(MyClass, a="hello", c=1.0)
+        # now everytime when there is a dependency on MyClass then MyClass(a="hello", b=42, c=1.0) will be inserted
 
-    container = create_container(MyContainer)
+    container = create_container(configure)
     a = container.get(MyClass)
     print(a.a)
     print(isinstance(a.foo, Foo))
@@ -213,20 +207,19 @@ If arguments are provided explicitly, it is not necessary to provide all argumen
 
 
 By explicitly providing arguments it is also possible to resolve dependencies without type annotations without type annotations.
- 
+
  .. testcode::
 
     class MyClass:
         def __init__(self, a):
             self.a = a
 
-    class MyContainer(StaticContainer):
-        def configure(self, config: Config):
-            # use config's set_arguments method to provide some arguments
-            config.set_arguments(MyClass, a="hello")
-            # now everytime when there is a dependency on MyClass then MyClass(a="hello", b=42, c=1.0) will be inserted
+    def configure(config: Config):
+        # use config's set_arguments method to provide some arguments
+        config.set_arguments(MyClass, a="hello")
+        # now everytime when there is a dependency on MyClass then MyClass(a="hello", b=42, c=1.0) will be inserted
 
-    container = create_container(MyContainer)
+    container = create_container(configure)
     a = container.get(MyClass)
     print(a.a)
 
@@ -253,15 +246,14 @@ By default all injected objects have a transient lifetime. That means, that ever
 
     from smart_injector import Lifetime
 
-    class MyContainer(StaticContainer):
-        def configure(self, config: Config):
-            # use config's set_lifetime method to specify an objects lifetime
-            config.set_lifetime(A, lifetime=Lifetime.SINGLETON)
-            # now there will be only one object of type A, which will be inserted wherever an object A is needed
-            config.set_lifetime(B, lifetime=Lifetime.TRANSIENT)
-            # everytime a new object B is created. This is the default behaviour for all types
+    def configure(config: Config):
+        # use config's set_lifetime method to specify an objects lifetime
+        config.set_lifetime(A, lifetime=Lifetime.SINGLETON)
+        # now there will be only one object of type A, which will be inserted wherever an object A is needed
+        config.set_lifetime(B, lifetime=Lifetime.TRANSIENT)
+        # everytime a new object B is created. This is the default behaviour for all types
 
-    container = create_container(MyContainer)
+    container = create_container(configure)
     a1 = container.get(A)
     a2 = container.get(A)
     b1 = container.get(B)
@@ -285,7 +277,7 @@ It is possible to override the default lifetime for objects created by a contain
 
     from smart_injector import Lifetime
 
-    container = create_container(StaticContainer, default_lifetime=Lifetime.SINGLETON)
+    container = create_container(default_lifetime=Lifetime.SINGLETON)
     a1 = container.get(A)
     a2 = container.get(A)
     print(a1 is a2)
@@ -309,13 +301,12 @@ If you want, that a specific instance is used for a type you can do that to.
 
     my_a = A("foo")
 
-    class MyContainer(StaticContainer):
-        def configure(self, config: Config):
-            # use config's instance method to specify that a particular instance shall be used
-            config.instance(A, my_a)
-            # every time an object of type A is needed, the instance my_a will be returned
+    def configure(config: Config):
+        # use config's instance method to specify that a particular instance shall be used
+        config.instance(A, my_a)
+        # every time an object of type A is needed, the instance my_a will be returned
 
-    container = create_container(MyContainer)
+    container = create_container(configure)
     a1 = container.get(A)
     print(a1 is my_a)
 
@@ -344,13 +335,12 @@ You can provide a callable during configuration. The return_type is determined b
         return A(foo)
 
 
-    class MyContainer(StaticContainer):
-        def configure(self, config: Config):
-            # use config's instance method to specify that a particular instance shall be used
-            config.callable(create_a, foo="bar")
-            # every time an object of type A is needed, the instance my_a will be returned
+    def configure(config: Config):
+        # use config's instance method to specify that a particular instance shall be used
+        config.callable(create_a, foo="bar")
+        # every time an object of type A is needed, the instance my_a will be returned
 
-    container = create_container(MyContainer)
+    container = create_container(configure)
     a = container.get(A)
     print(a.a)
 
