@@ -1,4 +1,4 @@
-__version__ = "__version__ = '0.0.4'"
+__version__ = "__version__ = '0.0.5'"
 
 from smart_injector.config.user import Config
 from smart_injector.container.container import StaticContainer
