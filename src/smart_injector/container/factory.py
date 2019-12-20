@@ -27,7 +27,15 @@ def create_container(
     configure: Optional[Callable[[Config], None]] = None,
     default_lifetime=Lifetime.TRANSIENT,
     dependencies: Optional[List[object]] = None,
-):
+) -> StaticContainer:
+    """
+    Use this function to create a DI container.
+
+    :param configure:
+    :param default_lifetime:
+    :param dependencies:
+    :return:
+    """
     if configure is None:
         configure = _default_config
     if dependencies is None:

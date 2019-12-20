@@ -1,14 +1,19 @@
+import inspect
+from abc import ABC
+from abc import abstractmethod
 from collections import defaultdict
 from enum import Enum
 from typing import Any
 from typing import Callable
 from typing import Dict
 from typing import Generic
+from typing import List
 from typing import Optional
 from typing import TypeVar
 from typing import cast
 
 from smart_injector.lifetime import Lifetime
+from smart_injector.resolver.resolver import Resolver
 from smart_injector.types import ConfigEntry
 
 
@@ -62,14 +67,80 @@ class ContextConfig(Generic[U]):
             self._with_context[item.where].pop(item.a_type, cast(U, None))
 
 
+class ArgProxy(ABC):
+    @abstractmethod
+    def get(self, resolver: Resolver):
+        pass
+
+
+class ValueArg(ArgProxy):
+    def __init__(self, value: T):
+        self.value = value
+
+    def get(self, resolver: Resolver) -> T:
+        return self.value
+
+
+class Inspector:
+    def __init__(self, object: Any):
+        self._object = object
+
+    @property
+    def class_name(self) -> str:
+        return ".".join(self._object.__qualname__.split(".")[:-1])
+
+    @property
+    def method_name(self) -> str:
+        return self._object.__qualname__.split(".")[-1]
+
+    @property
+    def klass_type(self) -> Any:
+        return self._object.__globals__[self.class_name]
+
+    @property
+    def parameters(self) -> List[Any]:
+        return list(inspect.signature(self._object).parameters)
+
+
+def method_of_not_created_class(method: Callable[..., T]) -> bool:
+    inspector = Inspector(method)
+    if inspect.isfunction(method):
+        try:
+            klass = inspector.klass_type
+        except KeyError:
+            return False
+        if inspect.isclass(klass):
+            parameters = inspector.parameters
+            if parameters and parameters[0] == "self":
+                return True
+    return False
+
+
+def create_class_and_call_method(method: Callable[..., T], resolver: Resolver) -> T:
+    class_instance = resolver.get_instance(Inspector(method).klass_type)
+    return resolver.get_instance(getattr(class_instance, Inspector(method).method_name))
+
+
+class FactoryArg(ArgProxy):
+    def __init__(self, factory: Callable[..., T]):
+        self.factory = factory
+
+    def get(self, resolver: Resolver) -> T:
+        if method_of_not_created_class(self.factory):
+            return create_class_and_call_method(self.factory, resolver)
+        return resolver.get_instance(self.factory)
+
+
 class FactoryArgs:
     def __init__(self):
-        self._config = ContextConfig[Dict[str, Any]](lambda x: {})
+        self._config = ContextConfig[Dict[str, ArgProxy]](lambda x: {})
 
-    def set_factory_args(self, what: ConfigEntry, kwargs: Dict[str, Any]):
-        self._config.set(what, kwargs)
+    def set_factory_args(self, what: ConfigEntry, kwargs: Dict[str, ArgProxy]):
+        args = self.get_factory_args(what)
+        args.update(kwargs)
+        self._config.set(what, args)
 
-    def get_factory_args(self, what: ConfigEntry) -> Dict[str, Any]:
+    def get_factory_args(self, what: ConfigEntry) -> Dict[str, ArgProxy]:
         return self._config.get(what)
 
 

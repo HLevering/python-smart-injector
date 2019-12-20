@@ -1,7 +1,6 @@
 from typing import Callable
 from typing import TypeVar
 
-from smart_injector.config.user import Config
 from smart_injector.resolver.resolver import Resolver
 
 T = TypeVar("T")
@@ -19,12 +18,11 @@ class StaticContainer:
         instead"""
         self.__resolver = resolver
 
-    def configure(self, config: Config):
-        """ override this method in your own container class. The config parameter is an object which gives you plenty of
-        methods to configure your container"""
-        pass
-
     def get(self, a_type: Callable[..., T]) -> T:
-        """get an instance of type a_type from the DI container. The instance of a_type is assembled according to your
-        configuration rules which you specified in the configure method"""
+        """
+        Get an instance of type `T`
+
+        :param a_type: either a class `T` or a function returning a `T`
+        :return: an instance of `T`
+        """
         return self.__resolver.get_instance(a_type)

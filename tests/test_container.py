@@ -11,6 +11,7 @@ from smart_injector.config.backend import Dependencies
 from smart_injector.config.backend import FactoryArgs
 from smart_injector.config.backend import Instances
 from smart_injector.config.backend import Lifetimes
+from smart_injector.config.backend import method_of_not_created_class
 from smart_injector.config.user import Config
 from smart_injector.container.factory import create_container
 from smart_injector.resolver.resolver import Resolver
@@ -178,8 +179,8 @@ class MyTransient:
 
 
 def configure_lifetime(config: Config):
-    config.set_lifetime(MySingleton, Lifetime.SINGLETON)
-    config.set_lifetime(MyTransient, Lifetime.TRANSIENT)
+    config.lifetime(MySingleton, Lifetime.SINGLETON)
+    config.lifetime(MyTransient, Lifetime.TRANSIENT)
 
 
 def test_singleton_lifetimes() -> None:
@@ -206,17 +207,6 @@ def test_default_lifetime_is_transient() -> None:
     assert t1 is not t2
 
 
-def configure_bind_and_lifetime(config: Config):
-    config.bind(MyInterface, MyImplementation, lifetime=Lifetime.SINGLETON)
-
-
-def test_bind_with_given_lifetime():
-    container = create_container(configure_bind_and_lifetime)
-    s1 = container.get(MyInterface)
-    s2 = container.get(MyInterface)
-    assert s1 is s2
-
-
 class Transient:
     def __init__(self, a: int, c: C, b: float):
         self.a = a
@@ -225,7 +215,7 @@ class Transient:
 
 
 def configure_transient(config: Config):
-    config.transient(Transient, a=42, b=10.0)
+    config.arguments(Transient, a=42, b=10.0)
 
 
 def test_transient_creates_transient_object_with_args():
@@ -237,7 +227,8 @@ def test_transient_creates_transient_object_with_args():
 
 
 def configure_singleton(config: Config):
-    config.singleton(Transient, a=42, b=10.0)
+    config.arguments(Transient, a=42, b=10.0)
+    config.lifetime(Transient, Lifetime.SINGLETON)
 
 
 def test_singleton_creates_singleton_objects_with_args():
@@ -271,7 +262,8 @@ def get_my_Transient(a: int, c: C, b: float) -> Transient:
 
 
 def configure_callable(config: Config):
-    config.callable(get_my_Transient, a=42)
+    config.bind(Transient, get_my_Transient)
+    config.arguments(get_my_Transient, a=42)
 
 
 def test_callable_is_called_with_args_for_return_type_dependency():
@@ -284,7 +276,7 @@ def test_callable_is_called_with_args_for_return_type_dependency():
 
 def configure_bind_singleton(config: Config):
     config.bind(MyInterface, MyImplementation)
-    config.singleton(MyImplementation)
+    config.lifetime(MyImplementation, Lifetime.SINGLETON)
 
 
 def test_lifetime_of_binded_type_is_singleton():
@@ -369,8 +361,8 @@ class UseT2:
 
 
 def configure_configure_transient_with_context(config: Config):
-    config.transient(T, a=1, where=UseT1)
-    config.transient(T, a=2, where=UseT2)
+    config.arguments(T, a=1, where=UseT1)
+    config.arguments(T, a=2, where=UseT2)
 
 
 def test_transient_within_a_context():
@@ -382,8 +374,10 @@ def test_transient_within_a_context():
 
 
 def configure_singleton_with_context(config: Config):
-    config.singleton(T, a=1, where=UseT1)
-    config.singleton(T, a=2, where=UseT2)
+    config.arguments(T, a=1, where=UseT1)
+    config.arguments(T, a=2, where=UseT2)
+    config.lifetime(T, Lifetime.SINGLETON, where=UseT1)
+    config.lifetime(T, Lifetime.SINGLETON, where=UseT2)
 
 
 def test_singleton_within_a_context():
@@ -420,8 +414,9 @@ def foo(a: int) -> T:
 
 
 def configure_callable_with_context(config: Config):
-    config.callable(foo, a=1, where=UseT1)
-    config.callable(foo, a=2, where=UseT2)
+    config.bind(T, foo)
+    config.arguments(foo, a=1, where=UseT1)
+    config.arguments(foo, a=2, where=UseT2)
 
 
 def test_callable_within_a_context():
@@ -438,10 +433,11 @@ class UseT3:
 
 
 def configure_lifetime_with_context(config: Config):
-    config.callable(foo, a=1, where=UseT1)
-    config.callable(foo, a=2, where=UseT2)
-    config.set_lifetime(foo, Lifetime.SINGLETON, where=UseT2)
-    config.callable(foo, a=2, where=UseT3, lifetime=Lifetime.SINGLETON)
+    config.bind(T, foo)
+    config.arguments(foo, a=1, where=UseT1)
+    config.arguments(foo, a=2, where=UseT2)
+    config.lifetime(foo, Lifetime.SINGLETON, where=UseT2)
+    config.lifetime(foo, where=UseT3, lifetime=Lifetime.SINGLETON)
 
 
 def test_scope_setting_within_a_context():
@@ -488,7 +484,7 @@ def test_callable_which_returns_none_raises_typeerror():
         pass
 
     def configure(config: Config):
-        config.callable(foo)
+        config.bind(T, foo)
 
     with pytest.raises(TypeError):
         create_container(configure)
@@ -513,7 +509,7 @@ class MySB:
 
 def configure_stacked_binding_and_lifetime(config: Config):
     config.bind(SB1, SB2)
-    config.set_lifetime(SB2, Lifetime.SINGLETON)
+    config.lifetime(SB2, Lifetime.SINGLETON)
     config.bind(SB2, SB3)
 
 
@@ -531,10 +527,140 @@ class MyArg:
 
 
 def configure_arguments(config: Config):
-    config.set_arguments(MyArg, arg1="foobar")
+    config.arguments(MyArg, arg1="foobar")
 
 
 def test_provide_arguments_for_a_callable_container():
     container = create_container(configure_arguments)
     my_arg = container.get(MyArg)
     assert my_arg.arg1 == "foobar"
+
+
+class ArgFactory:
+    def __init__(self, name: str):
+        self.name = name
+
+
+class NameProvider:
+    def __init__(self, name: str):
+        self.name = name
+
+
+def factory(provider: NameProvider) -> str:
+    return provider.name
+
+
+def configure_arg_factory(config: Config):
+    config.arg_factory(ArgFactory, name=factory)
+    config.arguments(NameProvider, name="foobar")
+
+
+def test_arg_factory():
+    container = create_container(configure_arg_factory)
+    my_arg = container.get(ArgFactory)
+    assert my_arg.name == "foobar"
+
+
+class ParameterAndFactory:
+    def __init__(self, number: int, text: str):
+        self.number = number
+        self.text = text
+
+
+def get_text() -> str:
+    return "foobar"
+
+
+def configure_parameter_and_factory(config: Config):
+    config.arguments(ParameterAndFactory, number=42, text="42")
+    config.arg_factory(ParameterAndFactory, text=get_text)
+
+
+def test_parameter_and_factory():
+    container = create_container(configure_parameter_and_factory)
+    my_arg = container.get(ParameterAndFactory)
+    assert my_arg.number == 42
+    assert my_arg.text == "foobar"
+
+
+class MyInt:
+    def get_int(self) -> int:
+        return 42
+
+
+class ProvidesInt:
+    def __init__(self, a_int: MyInt):
+        self._a_int = a_int
+
+    def get_int(self) -> int:
+        return self._a_int.get_int()
+
+    @staticmethod
+    def get_int_static() -> int:
+        return 10
+
+
+class NeedsInt:
+    def __init__(self, a_int: int):
+        self.a_int = a_int
+
+
+def configure_factory_class_static(config: Config):
+    config.arg_factory(NeedsInt, a_int=ProvidesInt.get_int_static)
+
+
+def test_container_factory_is_class_static_method():
+    container = create_container(configure_factory_class_static)
+    needs_int = container.get(NeedsInt)
+    assert needs_int.a_int == 10
+
+
+def configure_factory_class_instance_method(config: Config):
+    config.arg_factory(NeedsInt, a_int=ProvidesInt(MyInt()).get_int)
+
+
+def test_container_factory_is_class_instance_method():
+    container = create_container(configure_factory_class_instance_method)
+    needs_int = container.get(NeedsInt)
+    assert needs_int.a_int == 42
+
+
+def configure_factory_not_created_class_instance_method(config: Config):
+    config.arg_factory(NeedsInt, a_int=ProvidesInt.get_int)
+
+
+def test_container_factory_is_not_created_class_instance_method():
+    container = create_container(configure_factory_not_created_class_instance_method)
+    needs_int = container.get(NeedsInt)
+    assert needs_int.a_int == 42
+
+
+class MethodClass:
+    def bar(self):
+        pass
+
+    @staticmethod
+    def foo():
+        pass
+
+    @classmethod
+    def foobar(cls) -> "MethodClass":
+        return MethodClass()
+
+    def __call__(self):
+        pass
+
+
+def some_function():
+    pass
+
+
+def test_method_is_of_a_not_created_class():
+    assert method_of_not_created_class(MethodClass.bar) is True
+    assert method_of_not_created_class(MethodClass.foo) is False
+    assert method_of_not_created_class(MethodClass.foobar) is False
+    assert method_of_not_created_class(MethodClass().bar) is False
+    assert method_of_not_created_class(MethodClass().foo) is False
+    assert method_of_not_created_class(MethodClass().foobar) is False
+    assert method_of_not_created_class(some_function) is False
+    assert method_of_not_created_class(MethodClass()) is False

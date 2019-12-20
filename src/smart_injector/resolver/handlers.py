@@ -88,9 +88,16 @@ class InstanceFactory:
 
     def create(self, context: ResolveRequest) -> T:
         return context.real_type(
-            **self._dependency_instances(context),
-            **self._args.get_factory_args(context.local_config_entry())
+            **self._dependency_instances(context), **self._factory_args(context)
         )
+
+    def _factory_args(self, context: ResolveRequest) -> Dict[str, Any]:
+        return {
+            name: value.get(self._resolver)
+            for name, value in self._args.get_factory_args(
+                context.local_config_entry()
+            ).items()
+        }
 
     def _dependency_instances(self, context: ResolveRequest) -> Dict[str, Any]:
         return {
