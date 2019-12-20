@@ -21,7 +21,7 @@ def read(*names, **kwargs):
 
 setup(
     name="smart-injector",
-    version='0.0.5',
+    version='0.0.6',
     license="BSD-2-Clause",
     description="An easy to use lightweight dependency injection framework",
     long_description="%s\n%s"
