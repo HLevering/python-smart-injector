@@ -20,6 +20,7 @@ from smart_injector.types import ResolveRequest
 
 
 def dependencies(a_type: Callable[..., T]) -> Dict[str, Type[Any]]:
+    """returns dependencies of a callable"""
     return {
         parameter.name: parameter.annotation
         for parameter in inspect.signature(a_type).parameters.values()
