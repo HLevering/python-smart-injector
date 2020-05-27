@@ -73,6 +73,7 @@ class AbstractTypeHandler(Handler):
 
 
 class BuiltinsTypeHandler(Handler):
+    """handler for python builtin types"""
     def __init__(self, my_builtins: List[Type[Any]]):
         self._my_builtins = my_builtins
 
