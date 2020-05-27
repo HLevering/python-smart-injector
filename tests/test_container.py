@@ -66,7 +66,7 @@ def test_container_resolves_recursive_dependencies(container: StaticContainer) -
 
 
 def test_container_resolves_builtins_to_default_values(
-    container: StaticContainer
+    container: StaticContainer,
 ) -> None:
     my_int = container.get(int)
     assert my_int == 0
@@ -96,7 +96,7 @@ class MyInterface(ABC):
 
 
 def test_given_an_abstract_base_type_raises_typeerror(
-    container: StaticContainer
+    container: StaticContainer,
 ) -> None:
     with pytest.raises(TypeError) as e:
         container.get(MyInterface)
