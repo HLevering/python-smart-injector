@@ -28,6 +28,7 @@ def dependencies(a_type: Callable[..., T]) -> Dict[str, Type[Any]]:
 
 
 class InstanceHandler(Handler):
+    """return an a priori set instance for a type"""
     def __init__(self, instances: Instances):
         self._instances = instances
 
