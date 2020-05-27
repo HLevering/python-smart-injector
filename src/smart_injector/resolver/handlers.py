@@ -85,6 +85,7 @@ class BuiltinsTypeHandler(Handler):
 
 
 class InstanceFactory:
+    """creates new instances of a type"""
     def __init__(self, resolver: Resolver, args: FactoryArgs):
         self._resolver = resolver
         self._args = args
